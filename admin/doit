@@ -1,0 +1,74 @@
+#!/bin/sh
+
+# takes two parameters:
+#	1. either "mouse" or "rat", depending on which set of strain files
+#		you want to generate
+#	2. path to top level of this product
+
+#-------scriptdir check
+ 
+if [ -h $0 ]; then
+  # invoked as a symbolic link. Exit with an error message.
+  echo "ERROR: Script $0 invoked by a symbolic link." >& 2
+  exit 1
+fi
+ 
+# determine script's installation directory and cd to it.
+BASENAME=`basename $0`; NOTBASENAME=`echo $0 | sed "s/$BASENAME$//"`
+if [ "$NOTBASENAME" != "" ]; then
+   cd $NOTBASENAME
+fi
+ 
+# handle parameters
+
+if [ $# -ne 2 ]; then
+	echo "Must have 2 command line parameters"
+	exit 1
+fi
+ 
+ORGANISM=$1
+TOP=$2
+
+# Check for 'mouse' or 'rat' parameter
+
+if [ ${ORGANISM} != "mouse" -a ${ORGANISM} != "rat" ]; then
+	echo "Invalid parameter (${ORGANISM}), must be mouse or rat." >& 2
+	exit 1
+fi
+
+# main processing for one organism...
+
+OUTPUTDIR="${TOP}/www/${ORGANISM}"
+export OUTPUTDIR
+
+INPUTDIR="${TOP}/data/${ORGANISM}"
+export INPUTDIR
+
+PATH=".:${PATH}"
+export PATH
+
+if [ -r ${OUTPUTDIR}/DIAGNOSTICS ]; then
+	rm ${OUTPUTDIR}/DIAGNOSTICS
+fi
+
+echo "Preprocessing..."
+preprocess 
+
+echo "Finding strain headings..."
+findStrains < ${OUTPUTDIR}/INBREDS.rtf > ${OUTPUTDIR}/strains.txt
+
+echo "Removing old files..."
+find ${OUTPUTDIR}/*.shtml -exec rm {} \;
+find ${OUTPUTDIR}/docs/*shtml -exec rm {} \;
+find ${OUTPUTDIR}/docs_index/*shtml -exec rm {} \;
+
+echo "Parsing... ${ORGANISM}"
+parse ${ORGANISM}
+
+echo "Fixing line lengths..."
+fixlength ${OUTPUTDIR}/*.shtml ${OUTPUTDIR}/docs
+
+echo "setting group ownership and permissions..."
+chgrp ${GROUP} ${OUTPUTDIR}/*.shtml
+find ${OUTPUTDIR}/docs \( -name '*.shtml' \) -exec chgrp ${GROUP} {} \; || exit 1
+

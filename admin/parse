@@ -1,0 +1,664 @@
+#!./python
+#
+# parse
+#
+# This is the main script responsible for parsing INBREDS.rtf
+# and producing shtml.
+# 
+
+#-------scriptdir check and config load
+ 
+import sys
+import os
+ 
+if os.path.islink(sys.argv[0]):
+        # Invoked as a symbolic link. Exit with an error message.
+        msg = "ERROR: Script %s invoked by a symbolic link.\n" % sys.argv[0]
+        sys.stderr.write(msg)
+        sys.exit(1)
+ 
+# make sure script is invoked from its installation directory.
+NOTBASENAME, BASENAME = os.path.split(sys.argv[0])
+if NOTBASENAME not in ('.', '', None):
+        # Invoked from another directory. Exit with an error message.
+        msg = "ERROR: Script %s invoked from another directory.\n" % sys.argv[0]
+        sys.stderr.write(msg)
+        sys.exit(1)
+ 
+if '.' not in sys.path:
+        sys.path.insert(0, '.')
+ 
+#-------end scriptdir check and config load
+
+
+import string
+import regex
+import regsub
+
+wdir = os.environ['OUTPUTDIR']
+
+dbfd = open( wdir + '/DIAGNOSTICS', 'a')
+def debug(s):
+	dbfd.write( s + '\n' )
+
+def exit(s):
+	debug(s)
+	sys.exit(-1)
+
+if len(sys.argv) != 2:
+	exit( 'Usage: ' + sys.argv[0] + ' [mouse | rat]' )
+
+species = sys.argv[1]
+format = 'HTML'
+HTML = 'HTML'
+TEXT = 'text'
+
+TEMPLATE_HEAD      = '<!--#include file="include/templateHead.html"-->\n'
+TEMPLATE_BODYSTART = '<!--#include file="include/templateBodyStart.html"-->\n'
+TEMPLATE_BODYSTOP  = '<!--#include file="include/templateBodyStop.html"-->\n'
+
+
+sections = [ [], [], [], [] ]
+if species == 'mouse':
+    sectionHeaders = [
+	regex.compile( "^INTRODUCTION" ),
+	regex.compile( "^INBRED STRAINS AND THEIR CHARACTERISTICS" ),
+	regex.compile( "^References" ),
+	regex.compile( "^INBRED STRAINS OF MICE" ),
+	regex.compile( "^foobarfoobar" ) ]
+else:
+    sectionHeaders = [
+	regex.compile( "^INBRED STRAINS OF RATS" ),
+	regex.compile( "^A28807" ),
+	regex.compile( "^\\\\b References\\\\b0" ),
+	regex.compile( "^foobarfoobar" ) ]
+
+section = -1
+
+sys.stderr.write( wdir + '/INBREDS.rtf' + '\n' )
+ifd = open( wdir + '/INBREDS.rtf', 'r' )
+line = ifd.readline()
+while line:
+	if sectionHeaders[ section + 1 ].match( line ) != -1:
+		section = section + 1
+	sections[ section ].append( line )
+	line = ifd.readline()
+
+ifd.close()
+
+introSection = sections[0]
+bodySection = sections[1]
+refSection = sections[2]
+creditSection = sections[3]
+
+#########################################################
+
+def removeEscapes( s ):
+	return regsub.gsub("\\\\[^ ]+ ", "", s)
+
+re = regex.compile('\(\\\\[^ ]* \)')
+
+escapes1 = {}
+escapes1["\\'87 "] = "&aacute;"
+escapes1["\\'8a "] = "&auml;"
+escapes1["\\'8e "] = "&egrave;"
+escapes1["\\'92 "] = "&iacute;"
+escapes1["\\'9a "] = "&ouml;"
+escapes1["\\'9f "] = "&uuml;"
+escapes1["\\'a7 "] = "&szlig;"
+escapes1["\\'b1 "] = "&plusmn;"
+escapes1["\\up8 "] = "<SUP>"
+escapes1["\\up0 "] = "</SUP>"
+escapes1["\\dn8 "] = "<SUB>"
+escapes1["\\dn0 "] = "</SUB>"
+escapes1["\\i "] = "<em>"
+escapes1["\\i0 "] = "</em>"
+escapes1["\\b "] = "<b>"
+escapes1["\\b0 "] = "</b>"
+escapes1["\\par "] = "<p>\n"
+escapes1["\\qc "] = ""
+escapes1["\\qj "] = ""
+
+escapes2 = {}
+escapes2["\\'87 "] = "a"
+escapes2["\\'8a "] = "a"
+escapes2["\\'92 "] = "i"
+escapes2["\\'9a "] = "o"
+escapes2["\\'9f "] = "u"
+escapes2["\\'a7 "] = "beta"
+escapes2["\\'b1 "] = "+/-"
+escapes2["\\dn8 "] = ">"
+escapes2["\\i "] = ""
+escapes2["\\i0 "] = ""
+escapes2["\\par "] = "\n"
+escapes2["\\qc "] = ""
+escapes2["\\qj "] = ""
+escapes2["\\up8 "] = "<"
+escapes2["\\up0 "] = ">"
+escapes2["\\dn8 "] = ">"
+escapes2["\\dn0 "] = "<"
+
+
+escapes = {}
+if format == HTML:
+	escapes = escapes1
+else:
+	escapes = escapes2
+
+PHENOTYPE_SECTIONS = [
+	"Behaviour",
+	"Characteristics",
+	"Life-span and spontaneous disease",
+	"Lifespan and spontaneous disease",
+	"Normal physiology and biochemistry",
+	"Anatomy",
+	"Drugs",
+	"Drugs and chemicals",
+	"Immunology",
+	"Infection",
+	"Reproduction",
+	"Reproduction:",
+	"Miscellaneous",
+	]
+
+
+
+def convertRTF( line ):
+	repl = []
+	i = re.search( line )
+	while i != -1:
+		esc = re.group(1)
+		if not escapes.has_key(esc):
+			debug('Unrecognized escape: ' + esc )
+		else:
+			repl.append( (i, len(esc), escapes[esc]) )
+
+		i = re.search(line, i+1 )
+
+	newline = []
+	lasti = 0
+	for r in repl:
+		newline.append(line[lasti:r[0]])
+		newline.append(r[2])
+		lasti = r[0] + r[1]
+	newline.append(line[lasti:])
+	return string.joinfields( newline, '' )
+
+#########################################################
+
+def printAuthor( fd ):
+    if species == 'mouse':
+	fd.write('<HR><ADDRESS>INBRED STRAINS OF MICE<BR>')
+	fd.write('Updated 9 Apr. 1998<BR>')
+	fd.write('Michael FW Festing<BR>')
+	fd.write('MRC Toxicology Unit, Hodgkin Building,<BR>')
+	fd.write('University of Leicester, UK<BR>')
+	fd.write('</ADDRESS>\n')
+    else:
+	fd.write('<HR><ADDRESS>INBRED STRAINS OF RATS<BR>')
+	fd.write('Updated 9 Apr. 1998<BR>')
+	fd.write('Michael FW Festing<BR>')
+	fd.write('MRC Toxicology Unit, Hodgkin Building,<BR>')
+	fd.write('University of Leicester, UK<BR>')
+	fd.write('</ADDRESS>\n')
+
+#########################################################
+
+ofd = open( wdir + '/INTRO.shtml', 'w')
+if species == 'mouse':
+    ofd.write(TEMPLATE_HEAD)
+    ofd.write('<TITLE><!--#include file="include/title.html"-->' + \
+        ' - Inbred Strains of Mice</TITLE>\n')
+    ofd.write(TEMPLATE_BODYSTART)
+    ofd.write('<div id="titleBarWrapper" >')
+    ofd.write('<span class="titleBarMainTitle">Inbred Strains of Mice and their Characteristics</span>')
+    ofd.write('</div>')
+
+else:
+    ofd.write(TEMPLATE_HEAD)
+    ofd.write('<TITLE><!--#include file="include/title.html"-->' + \
+        ' - Inbred Strains of Rats</TITLE>\n')
+    ofd.write(TEMPLATE_BODYSTART)
+    ofd.write('<div id="titleBarWrapper" >')
+    ofd.write('<span class="titleBarMainTitle">Inbred Strains of Rats and their Characteristics</span>')
+    ofd.write('</div>')
+
+for line in introSection:
+	ofd.write( convertRTF(line) )
+printAuthor( ofd )
+ofd.write(TEMPLATE_BODYSTOP)
+ofd.close()
+
+#########################################################
+
+rfile = wdir + '/REFS.shtml'
+rfd = open( rfile, 'w' )
+
+rfd.write(TEMPLATE_HEAD)
+rfd.write('<TITLE><!--#include file="include/title.html"-->')
+rfd.write(' - Inbred Strains References</TITLE>\n')
+rfd.write(TEMPLATE_BODYSTART)
+rfd.write('<div id="titleBarWrapper" >')
+rfd.write('<span class="titleBarMainTitle">Inbred Strains</span>')
+rfd.write('</div>')
+
+printAuthor(rfd)
+
+yre = regex.compile('(\(\(19\|20\)[0-9][0-9]\([a-z]\|\)\))')
+are = regex.compile('^\([^ .,]*\)' )
+
+lastletter = ''
+
+refs = {}
+refs2 = []
+refs2strains = {}
+strains2refs = {}
+
+escapes1["\\par "] = "\n"
+
+tmp = refSection[1:]
+refSection = []
+currRef = ''
+for line in tmp:
+    parFound = string.find( line, '\\par' )
+    if parFound != -1:
+	line = regsub.sub('\\\\par', '', line)
+    currRef = string.strip(currRef + ' ' + line)
+    if parFound  != -1 and currRef != '':
+	refSection.append(currRef)
+	currRef = ''
+if currRef != '':
+    refSection.append( currRef )
+
+for line in refSection:
+
+	err = 0
+
+	yearPos = yre.search(line)
+	if yearPos == -1:
+		debug('Could not parse year.')
+		err = 1
+		year = ''
+		prefix = line
+	else:
+		year = yre.group(1)
+		prefix = line[:yearPos]
+
+	prefix = removeEscapes(prefix)
+	if are.search(prefix) == -1:
+		debug('Could not parse first author.')
+		err = 1
+		au = ''
+	else:
+		au = are.group(1)
+		if ',' in prefix or string.find(prefix, " and ") != -1:
+			au = au + " et al"
+
+	if err:
+		debug(line + '####')
+
+	key = au + year
+	line = convertRTF(line)
+	if refs.has_key(key):
+		debug('Duplicate ref key: ' + key )
+	else:
+		refs[key] = line
+	refs2.append( (key, line) )
+
+escapes1["\\par "] = "<p>\n"
+
+#########################################################
+
+strains = []
+majorstrains = []
+strain2major = {}
+currMstrain = ''
+currStrain = ''
+currSection = []
+
+def cleanString( sn ):
+	##
+	## Strip markup, newlines, whitespace etc.
+	##
+	sn = string.strip(regsub.gsub('<[^>]*>', '', convertRTF(sn)))
+	sn = string.join(string.split(sn))
+	return sn
+
+
+def majorStrain( strain ):
+	if strain2major.has_key(strain):
+	    return strain2major[strain]
+	else:
+	    tokens = string.split(strain)
+	    if len(tokens) == 1 or (len(tokens) == 2 and tokens[1] == '\\par'):
+		i = regex.search( '[^A-Za-z0-9]', tokens[0] )
+		if i != -1:
+		    ms = tokens[0][:i]
+		else:
+		    ms = tokens[0]
+		if ms in majorstrains:
+			if ms == "C3HeB":
+				ms = "C3H"
+			return ms
+		else:
+			return None
+	    else:
+		return None
+
+
+def loadStrains():
+	global strains
+	global majorstrains
+	global strain2major
+	fd = open( wdir + "/strains.txt", 'r' )
+	line = fd.readline()
+	while line:
+		i = string.find(line, ':')
+		ms = line[:i]
+		s = line[i+1:]
+		strains.append(s)
+		strain2major[s] = ms
+		if not ms in majorstrains:
+			majorstrains.append(ms)
+		line = fd.readline()
+	fd.close()
+	strains.sort()
+	majorstrains.sort()
+
+	#print strains
+	#print majorstrains
+	#sys.exit(0)
+			
+
+ofile = ''
+#rel_ofile = ''
+ofd = -1
+
+def newMStrain( strain, line ):
+	global currMstrain
+	global currStrain
+	global currSection
+
+	global ofile
+	#global rel_ofile
+	global ofd
+
+	if ofd != -1:
+		finishMstrain()
+
+	sys.stderr.write( "MAJOR STRAIN: " + strain  + '\n')
+	debug( "MAJOR STRAIN: " + strain )
+
+	currMstrain = strain
+	currStrain = strain
+
+	if not strains2refs.has_key( currMstrain ):
+		strains2refs[currMstrain] = {}
+		mode = 'w'
+	else:
+		mode = 'a'
+		
+	#rel_ofile = '/' + strainssubdir + '/docs/' + strain + '.shtml'
+	ofile = wdir + '/docs/' + strain + '.shtml'
+	ofd  = open( ofile, mode )
+
+	if mode == 'w':
+		if format == HTML:
+			ofd.write(TEMPLATE_HEAD)
+			ofd.write('<TITLE>')
+			ofd.write('<!--#include file="include/title.html"-->')
+			ofd.write(' - Inbred Strains: ' + strain + \
+				'</TITLE>\n')
+			ofd.write(TEMPLATE_BODYSTART)
+		else:
+			ofd.write(strain + '\n' )
+
+	if format == HTML:
+	    if species == 'mouse':
+	    	ofd.write('<div id="titleBarWrapper">')
+	    	ofd.write('<span class="titleBarMainTitle"> Inbred Strains of Mice: '+strain + '</span>')
+		ofd.write('</div>')
+		ofd.write('<H3><A NAME="%s">%s</A></H3>\n' % (strain, line))
+#		ofd.write('<H2><A HREF="../../search_form.cgi">Inbred Strains of Mice</A>: ' + strain + '</H2><BR><H3><A NAME="' + strain + '">' + line + '</A></H3>\n')
+	    else:
+	    	ofd.write('<div id="titleBarWrapper">')
+	    	ofd.write('<span class="titleBarMainTitle"> Inbred Strains of Rats:  '+strain + '</span>')
+		ofd.write('</div>')
+		ofd.write('<H3><A NAME="%s">%s</A></H3>\n' % (strain, line))
+#		ofd.write('<H2><A HREF="../../search_form.cgi">Inbred Strains of Rats</A>: ' + strain + '</H2><BR><H3><A NAME="' + strain + '">' + line + '</A></H3>\n')
+	else:
+		ofd.write(line + '\n')
+
+def finishMstrain():
+	processSection()
+	if format == HTML:
+		if strains2refs.has_key( currMstrain ):
+		    ofd.write( '<HR>\n' )
+		    ks = strains2refs[currMstrain].keys()
+		    ks.sort()
+		    for k in ks:
+			    r = refs[k]
+			    ofd.write( '<A NAME="' + k + '" HREF="../REFS.shtml#' + k + '">' + r + '</A><P>\n' )
+		printAuthor( ofd )
+		ofd.write(TEMPLATE_BODYSTOP)
+	ofd.close()
+
+def newStrain( strain ):
+	global currStrain
+	global currSection
+	processSection()
+
+	ss = string.strip(strain)
+	sys.stderr.write( "STRAIN: " + ss + '\n' )
+	debug( "STRAIN: " + ss )
+
+	currStrain = strain
+	if format == HTML:
+		ofd.write('<H4>' + strain + '</H4>\n')
+
+def startPhenotypeSection( line ):
+	global currSection
+	line = cleanString(line)
+	if line in PHENOTYPE_SECTIONS:
+		currSection.append('<HR><H3>' + line + '</H3>\n')
+		return 1
+
+	return 0
+
+def processLine(line):
+	global currMstrain
+	global currStrain
+	global currSection
+
+	# See if line begins a new strain section
+	#
+	ms = majorStrain( line )
+	if ms != None:
+		if ms != currMstrain:
+			newMStrain(ms, convertRTF(line))
+		else:
+			ss = cleanString(convertRTF(line))
+			newStrain(ss)
+	elif not startPhenotypeSection( line ):
+		# append line to curr section. Remove newline char.
+		currSection.append( line[:-1] )
+
+
+##
+## citre matches "(...19xx...)" and captures the text between
+## the parens. citre2 is then used to match with this text. It
+## looks for "...19xx". The two are used together to parse multiple
+## citations within a set of parens, e.g., (Smith 1988, Jones 1989).
+##
+
+citre = regex.compile( '(\([^)]*19[0-9][0-9][^)]*\))' )
+citre2 = regex.compile( '\(19[0-9][0-9]\([a-z]\|\)\)' )
+
+def matchCitations( line ):
+	global currMstrain
+	global currStrain
+	global currSection
+	global escapes
+	#
+	repl = []
+	i = citre.search(line)
+	while i != -1:
+	    citext = removeEscapes(citre.group(1))
+	    #debug(citext)
+	    i2 = 0
+	    j = citre2.search(citext)
+	    while j != -1:
+		citext2 = citext[i2:j+len(citre2.group(1))]
+		#debug( '\t' + citext2 )
+		cit = string.split(regsub.gsub('[.,;]\|e\.g\.', ' ', citext2))
+
+		# form key by concatenating first author and year.
+		# skip over things like "See also" and "Quoted in" to
+		# find first author.
+		fa = ''
+		foundAND = 0
+		foundET = 0
+		foundAL = 0
+		for c in cit:
+		    if not c in ['See','see','also','Quoted','quoted', 'in','by']:
+			    if not fa:
+				fa = c
+			    elif c == "and":
+				foundAND = 1
+			    elif c == "et":
+				foundET = 1
+			    elif c == "al":
+				foundAL = 1
+		if foundAND or (foundET and foundAL):
+			fa = fa + " et al"
+		key = fa + regsub.gsub('[^0-9a-z]', '', cit[-1])
+
+		if refs.has_key( key ):
+			if not refs2strains.has_key(key):
+				refs2strains[key] = [currMstrain]
+			elif not currMstrain in refs2strains[key]:
+				refs2strains[key].append(currMstrain)
+			anchor = '<A HREF="#' + key + \
+				'">' + citext2 + '</A>'
+			rt = (i+i2+1, len(citext2), anchor ) 
+			#debug( '\tREPLACE: (' + line[rt[0]:rt[0]+rt[1]] + ') WITH (' + rt[2] + ')' )
+			repl.append( rt )
+			#debug(currMstrain + ' ' + key )
+			strains2refs[currMstrain][key] = 1
+		elif regex.match( "19[0-9][0-9]\([a-z]\|\)", key ) != -1:
+			# variant form of citation. Look for author
+			# names preceeding year, e.g.
+			#   ...Lovell (1976) ...
+			#   ...Lovell and Smith (1976b) ...
+			#   ...Lovell et al (1976) ...
+			authors = line[i-30:i]
+			authors = regsub.gsub('\\\\[^ ]* ', '', authors)
+			authors = regsub.gsub('\.\|,', '', authors)
+			authors = string.split(authors)
+			if len(authors) >= 3:
+			    if authors[-1] == 'al':
+				    key = authors[-3] + " et al" + citre.group(1)
+			    elif authors[-2] == 'and':
+				    key = authors[-3] + " et al" + citre.group(1)
+			    else:
+				    key = authors[-1] + citre.group(1)
+			    if refs.has_key(key):
+				if not refs2strains.has_key(key):
+				    refs2strains[key] = []
+				if not currMstrain in refs2strains[key]:
+				    refs2strains[key].append(currMstrain)
+				anchor = '<A HREF="#' + key + \
+				    '">' + citre.group(1) + '</A>'
+				rt = (i+1, len(citre.group(1)), anchor)
+				#debug( '\tREPLACE: (' + line[rt[0]:rt[0]+rt[1]] + ') WITH (' + rt[2] + ')' )
+				repl.append( rt )
+				if strains2refs.has_key( currMstrain ):
+					strains2refs[currMstrain][key] = 1
+				break
+		else:
+			debug('Key not found: '+key+' : '+citre.group(1))
+		i2 = j+4
+		j = citre2.search( citext, i2 )
+	    i = citre.search(line, i+len(citre.group(1)))
+
+	# process replacements
+	lasti = 0
+	newline = ''
+	for r in repl:
+		newline = newline + line[lasti:r[0]] + r[2]
+		lasti = r[0] + r[1]
+	newline = newline + line[lasti:]
+	return newline
+
+	    
+def processSection():
+	global currMstrain
+	global currStrain
+	global currSection
+	global escapes
+
+	line = string.join( currSection )
+	currSection = []
+
+	if ofd == -1:
+	    debug("processSection: no file open.")
+	    return
+
+	if format == HTML:
+		line = matchCitations(line)
+
+	line = convertRTF(line)
+	ofd.write(line)
+
+
+###################################################
+
+loadStrains()
+count = 1
+for line in bodySection:
+	processLine(line)
+	count = count + 1
+finishMstrain()
+
+ofd.close()
+ofd = open( wdir + '/STRAINS.shtml', 'w' )
+ofd.write(TEMPLATE_HEAD)
+ofd.write('<TITLE><!--#include file="include/title.html"-->' + \
+	' - Inbred Strains: Index</TITLE>\n')
+ofd.write(TEMPLATE_BODYSTART)
+
+ofd.write('<div id="titleBarWrapper" >')
+ofd.write('<span class="titleBarMainTitle">Inbred Strains</span>')
+ofd.write('</div>')
+
+printAuthor( ofd )
+if species == 'mouse':
+    ofd.write('<HR><H3>Index of Major Mouse Strains</H3>\n')
+else:
+    ofd.write('<HR><H3>Index of Major Rat Strains</H3>\n')
+ofd.write('<UL>\n')
+for ms in majorstrains:
+	ofile = 'docs/' + ms + '.shtml'
+	ofd.write('<LI><A HREF="' + ofile + '">' + ms + '</A> \n' )
+ofd.write('</UL>\n')
+ofd.write(TEMPLATE_BODYSTOP)
+ofd.close()
+
+lastletter = ''
+for r in refs2:
+	if r[0][0] != lastletter:
+		rfd.write('<HR>\n')
+		lastletter = r[0][0]
+	rfd.write( '<A NAME="' + r[0] + '">' + r[1] + '</A><br>\n' )
+	if refs2strains.has_key( r[0] ):
+		refs2strains[r[0]].sort()
+		for s in refs2strains[r[0]]:
+			ofile = 'docs/' + \
+				s + '.shtml'
+			rfd.write( '<A HREF="' + ofile + '">' + \
+				s + '</A> ')
+	rfd.write('<p>\n')
+
+rfd.write(TEMPLATE_BODYSTOP)
+rfd.close()
+

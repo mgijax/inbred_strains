@@ -1,0 +1,72 @@
+#!./python
+#
+# postprocess
+#
+# Does a little bit of summarizing of the DIAGNOSTICS
+# file produced by parse.
+
+
+#-------scriptdir check and config load
+ 
+import sys
+import os
+ 
+if os.path.islink(sys.argv[0]):
+        # Invoked as a symbolic link. Exit with an error message.
+        msg = "ERROR: Script %s invoked by a symbolic link.\n" % sys.argv[0]
+        sys.stderr.write(msg)
+        sys.exit(1)
+ 
+# make sure script is invoked from its installation directory.
+NOTBASENAME, BASENAME = os.path.split(sys.argv[0])
+if NOTBASENAME not in ('.', '', None):
+        # Invoked from another directory. Exit with an error message.
+        msg = "ERROR: Script %s invoked from another directory.\n" % sys.argv[0]
+        sys.stderr.write(msg)
+        sys.exit(1)
+ 
+if '.' not in sys.path:
+        sys.path.insert(0, '.')
+import wi_config 
+config = wi_config.config
+ 
+#-------end scriptdir check and config load
+
+
+import string
+
+wdir = os.environ['OUTPUTDIR']
+
+ifile = wdir + "/DIAGNOSTICS"
+ifd = open( ifile, 'r' )
+lines = ifd.readlines()
+ifd.close()
+
+ofile = wdir + '/NOTFOUND'
+ofd = open( ofile, 'w' )
+
+notfound = {}
+refs = {}
+
+strain = ''
+for line in lines:
+	if string.find( line, "MAJOR STRAIN:" ) == 0:
+		strain = string.strip( line[string.find(line, ':')+1 : ] )
+	elif strain == '':
+		continue
+	elif string.find( line, "Key not found: " ) != -1:
+		tokens = string.split( line )
+		key = tokens[3]
+		ref = string.join( tokens[5:] )
+		if not notfound.has_key(key):
+			notfound[key] = [strain]
+			refs[key] = ref
+		elif not strain in notfound[key]:
+			notfound[key].append(strain)
+
+ks = notfound.keys()
+ks.sort()
+for k in ks:
+	notfound[k].sort()
+	ofd.write( k + ' (' + refs[k] + ') : ' + string.joinfields( notfound[k], ', ' ) + '\n' )
+

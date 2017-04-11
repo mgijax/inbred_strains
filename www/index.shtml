@@ -1,0 +1,31 @@
+<!--#include file="include/templateHead.html"-->
+<!--#include file="include/templateBodyStart.html"-->
+<div id="titleBarWrapper">
+<span class="titleBarMainTitle">Inbred Strains of Mice and Rats</span>
+<br>
+</div>
+<BR>
+This page provides access to searchable, hypertext listings of
+inbred strains of mice and inbred strains
+of rats. Both sets of information were provided by Dr. Michael 
+FW Festing (MRC Toxicology Unit) and were converted for Web 
+presentation by the Mouse Genome Informatics Group at The Jackson Laboratory.
+<P>
+There are several points of entry to these listings:
+<UL>
+<LI><A HREF="mouse/INTRO.shtml">Introduction to the mouse listing.</A> 
+<LI><A HREF="rat/INTRO.shtml">Introduction to the rat listing.</A> 
+<BR>
+<BR>
+<LI><A HREF="mouse/STRAINS.shtml">Index of major mouse strains.</A>
+<LI><A HREF="rat/STRAINS.shtml">Index of major rat strains.</A>
+<BR>
+<BR>
+<LI><A HREF="mouse/REFS.shtml">List of mouse references</A>, 
+	cross-referenced to strains.
+<LI><A HREF="rat/REFS.shtml">List of rat references</A>, 
+	cross-referenced to strains.
+<BR>
+<BR>
+</UL>
+<!--#include file="include/templateBodyStop.html"-->

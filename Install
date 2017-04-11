@@ -1,0 +1,115 @@
+#!/bin/sh
+
+# cannot execute as a symbolic link
+
+if [ -h $0 ]; then
+	echo "Cannot execute Install script as a symbolic link" >& 2
+	exit 1
+fi
+
+# make sure we are in the product's directory before continuing
+
+SCRIPT=`basename $0`
+DIR=`echo $0 | sed "s/${SCRIPT}$//"`
+if [ "${DIR}" != "" ]; then
+	cd ${DIR}
+fi
+
+# make sure we can access configuration file
+
+CONFIG=./Configuration
+
+if [ ! -r ${CONFIG} ]; then
+	echo "Missing ${DIR}${CONFIG} file" >& 2
+	exit 1
+fi
+
+# pick up values for standard variables
+
+TOP=`pwd`
+PYTHON=`grep '^PYTHON' ${CONFIG} | awk '{print $2}'`
+if [ ! -r ${PYTHON} ]; then
+	echo "Cannot read python at ${PYTHON}" >& 2
+	exit 1
+fi
+
+MGICONFIG=`grep '^MGICONFIG' ${CONFIG} | awk '{print $2}'`
+if [ ! -r ${MGICONFIG} ]; then
+	echo "Cannot find mgiconfig at ${MGICONFIG}" >& 2
+	exit 1
+fi
+
+GROUP=`grep '^GROUP' ${CONFIG} | awk '{print $2}'`
+
+# remove any existing python executable links, create new one
+
+if [ ! -d ./bin ]; then
+	mkdir ./bin
+fi
+
+if [ -h ./bin/python ]; then
+	rm ./bin/python
+fi
+
+cd bin 
+ln -s $PYTHON python
+cd ${TOP}
+
+echo "Created ./bin/python link"
+
+if [ -h ./admin/python ]; then
+	rm ./admin/python
+fi
+
+cd admin
+ln -s ../bin/python python
+cd ${TOP}
+
+echo "Created ./admin/python link"
+
+# remove any existing include directory, create and populate new one
+# with links to template files
+
+if [ -d ./www/include ]; then
+	rm -rf ./www/include
+fi
+
+mkdir www/include
+cd www/include
+
+ln -s ${MGICONFIG}web/templateBodyStart.html templateBodyStart.html
+ln -s ${MGICONFIG}web/templateHeadNoReset.html templateHead.html
+ln -s ${MGICONFIG}web/templateBodyStop.html templateBodyStop.html
+
+echo "MGI" > title.html
+
+cd ${TOP}
+
+echo "Created ./www/include/ links"
+
+# remove old documents and recreate the mouse and rat output directories
+
+for organism in mouse rat
+do
+	if [ -d www/${organism} ]; then
+		rm -rf www/${organism}
+	fi
+	mkdir www/${organism}
+	mkdir www/${organism}/docs
+	echo "Created ./www/${organism}/ directory"
+
+	cd www/${organism}
+	ln -s ../include include
+	cd docs
+	ln -s ../../include include
+	cd ${TOP}
+done
+
+# build the document for mouse and rat
+
+./admin/doit mouse ${TOP}
+./admin/doit rat ${TOP}
+
+# finish
+echo "Done" >& 2
+exit 0

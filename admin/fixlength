@@ -1,0 +1,96 @@
+#!./python
+ 
+# fixlength
+ 
+"""Shortens all lines of all files in a directory to < 1024 characters.
+
+**************************************************************
+***** WARNING!!! -- The source files are overwritten!!! ******
+**************************************************************
+
+If argv[1] is a directory, fixlength is applied to all files in the
+directory
+"""
+
+
+#-------scriptdir check and config load
+ 
+import sys
+import os
+ 
+if os.path.islink(sys.argv[0]):
+        # Invoked as a symbolic link. Exit with an error message.
+        msg = "ERROR: Script %s invoked by a symbolic link.\n" % sys.argv[0]
+        sys.stderr.write(msg)
+        sys.exit(1)
+ 
+# make sure script is invoked from its installation directory.
+NOTBASENAME, BASENAME = os.path.split(sys.argv[0])
+if NOTBASENAME not in ('.', '', None):
+        # Invoked from another directory. Exit with an error message.
+        msg = "ERROR: Script %s invoked from another directory.\n" % sys.argv[0]
+        sys.stderr.write(msg)
+        sys.exit(1)
+ 
+if '.' not in sys.path:
+        sys.path.insert(0, '.')
+ 
+#-------end scriptdir check and config load
+
+
+import string
+ 
+NL = '\n'
+
+# lfbreak
+# Adds linefeeds to 's', dividing 's' into substrings approx. 'limit'
+# characters in length. Assumes that 's' has blanks between words and
+# that words are of reasonable length.  This routine is used to process
+# data for WAIS indexing, where the indexing buffer constraints require
+# that the length of any line in a file is < 1000 bytes.
+#
+# returns string with '\n' added (int)(len(s)/limit) times
+#
+def lfbreak(s, limit):
+	idx = string.find(s, ' ', limit)
+	while idx > -1:
+		s = s[:idx] + '\n' + s[idx+1:]
+		idx = string.find(s, ' ', idx + limit)
+	return s
+ 
+LINE_LENGTH = 70
+
+if len( sys.argv ) < 2:
+	print 'Usage: ' + sys.argv[0] + ' <path> [<path> ...]'
+	sys.exit(0)
+
+paths = []
+for arg in sys.argv[1:]:
+    # Build a list of paths.
+    if os.path.isdir( arg ):
+	for filename in os.listdir( arg ):
+		path = os.path.join( arg, filename )
+		if os.path.isfile( path ):
+			paths.append( os.path.join( arg, filename ) )
+    elif os.path.isfile( arg ):
+	paths.append( arg )
+    else:
+	print "'" + arg + "' not found."
+
+
+# Apply lfbreak to each path.
+for path in paths:
+	sys.stderr.write( path + '\n' )
+	src = open( path )
+	tmp = []
+	for line in src.readlines():
+		tmp.append( lfbreak(line, LINE_LENGTH) )
+	src.close()
+	try:
+		dest = open( path, 'w' )
+		for line in tmp:
+			dest.write( line )
+		dest.close()
+	except:
+		sys.stderr.write( 'fixlength: unable to open ' + path \
+			+ ' for writing.\n' )
