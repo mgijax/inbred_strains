@@ -68,7 +68,7 @@ parse ${ORGANISM}
 echo "Fixing line lengths..."
 fixlength ${OUTPUTDIR}/*.shtml ${OUTPUTDIR}/docs
 
-echo "setting group ownership and permissions..."
+echo "setting group ownership and permissions... (${GROUP})"
 chgrp ${GROUP} ${OUTPUTDIR}/*.shtml
-find ${OUTPUTDIR}/docs \( -name '*.shtml' \) -exec chgrp ${GROUP} {} \; || exit 1
+#find ${OUTPUTDIR}/docs \( -name '*.shtml' \) -exec chgrp ${GROUP} {} \; || exit 1
 

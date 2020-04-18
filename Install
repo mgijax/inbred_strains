@@ -39,7 +39,11 @@ if [ ! -r ${MGICONFIG} ]; then
 	exit 1
 fi
 
-GROUP=`grep '^GROUP' ${CONFIG} | awk '{print $2}'`
+export GROUP=`grep '^GROUP' ${CONFIG} | awk '{print $2}'`
+if [ "${GROUP}" = "" ]; then
+	echo "Cannot find group in ${CONFIG}" >& 2
+	exit 1
+fi
 
 # remove any existing python executable links, create new one
 

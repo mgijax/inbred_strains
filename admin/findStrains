@@ -30,7 +30,6 @@ if '.' not in sys.path:
  
 #-------end scriptdir check and config load
 
-import string
 import re
 
 ifd = sys.stdin
@@ -58,23 +57,23 @@ re3 = re.compile('^[A-Z][^ ]* \\\\par[ ]*$')
 line = ifd.readline()
 lastline = ''
 while line:
-	if re1.match(line) != None or re3.match(lastline) != None:
-	    i = re.search('[^A-Za-z0-9]', lastline).regs[0][0]
-	    mstrain = lastline[0:i]
-	    ##
-	    ## Hardwire a special case for the following exception:
-	    ##		C3Heb is a substrain of C3H
-	    ##
-	    if mstrain == "C3HeB":
-		mstrain = "C3H"
-		i = 3
-	    if mstrain in ['Inbr', 'to','Characteristics',
-			   'continued','Reproduction','Black','case',
-			   'Research','biochemistry']:
-		lastline = line
-	    else:
-		sys.stdout.write(lastline[0:i] + ':' + lastline)
-	    
-	if re2.match(line) == None:
-	    lastline = line
-	line = ifd.readline()
+        if re1.match(line) != None or re3.match(lastline) != None:
+            i = re.search('[^A-Za-z0-9]', lastline).regs[0][0]
+            mstrain = lastline[0:i]
+            ##
+            ## Hardwire a special case for the following exception:
+            ##          C3Heb is a substrain of C3H
+            ##
+            if mstrain == "C3HeB":
+                mstrain = "C3H"
+                i = 3
+            if mstrain in ['Inbr', 'to','Characteristics',
+                           'continued','Reproduction','Black','case',
+                           'Research','biochemistry']:
+                lastline = line
+            else:
+                sys.stdout.write(lastline[0:i] + ':' + lastline)
+            
+        if re2.match(line) == None:
+            lastline = line
+        line = ifd.readline()

@@ -34,10 +34,6 @@ if '.' not in sys.path:
  
 #-------end scriptdir check and config load
 
-import string
-import regex
-import regsub
-
 braceLevel = 0
 inMarkup = 0
 
@@ -52,50 +48,50 @@ ifd = open( datadir + '/source.rtf', 'r' )
 ofd = open( wdir + '/INBREDS.rtf', 'w' )
 
 def debug(s):
-	sys.stderr.write( s + '\n' )
+        sys.stderr.write( s + '\n' )
 
 def ptag(lastchar):
-	global tag
-	global closetag
-	global unknownTags
+        global tag
+        global closetag
+        global unknownTags
 
-	if tag[0:2] == "up":
-		tag = "super"
-	elif tag[0:2] == "dn":
-		tag = "sub"
+        if tag[0:2] == "up":
+                tag = "super"
+        elif tag[0:2] == "dn":
+                tag = "sub"
 
 
-	if tag == "i":
-		ofd.write( '\\i ' )
-		closetag = '\\i0 ' + closetag
-	elif tag == "super":
-		ofd.write( '\\up8 ' )
-		closetag = '\\up0 ' + closetag
-	elif tag == "sub":
-		ofd.write( '\\dn8 ' )
-		closetag = '\\dn0 ' + closetag
-	elif tag == "b":
-		ofd.write( '\\b ' )
-		closetag = '\\b0 ' + closetag
-	elif tag == "par":
-		ofd.write( '\\par \n' )
-	elif tag == "tab":
-		ofd.write( '	' )
-	else:
-		if not(tag[0] in ['f', 'c']):
-		    ofd.write( '\\' + tag + lastchar )
-		    unknownTags['\\' + tag] = 1
+        if tag == "i":
+                ofd.write( '\\i ' )
+                closetag = '\\i0 ' + closetag
+        elif tag == "super":
+                ofd.write( '\\up8 ' )
+                closetag = '\\up0 ' + closetag
+        elif tag == "sub":
+                ofd.write( '\\dn8 ' )
+                closetag = '\\dn0 ' + closetag
+        elif tag == "b":
+                ofd.write( '\\b ' )
+                closetag = '\\b0 ' + closetag
+        elif tag == "par":
+                ofd.write( '\\par \n' )
+        elif tag == "tab":
+                ofd.write( '    ' )
+        else:
+                if not(tag[0] in ['f', 'c']):
+                    ofd.write( '\\' + tag + lastchar )
+                    unknownTags['\\' + tag] = 1
 
-	tag = ''
-		
+        tag = ''
+                
 
 def pline():
-	global line
-	global closetag
+        global line
+        global closetag
 
-	if line != '':
-		ofd.write(line)
-		line = ''
+        if line != '':
+                ofd.write(line)
+                line = ''
 
 def process():
     global braceLevel
@@ -108,63 +104,63 @@ def process():
     i = -1
     wordCount = 0
     while i < len(data)-1:
-	i = i + 1
-	c = data[i]
-	if c == '\n':
-		c = ''
-	#sys.stderr.write(c)
-	if c == "{":
-		braceLevel = braceLevel + 1
-		if braceLevel > 1:
-			sys.stderr.write("\n\nNested braces!!!\n")
-			#sys.exit(-1)
-	elif c == "}":
-		if inMarkup:
-			pline()
-			ptag(c)
-			inMarkup = 0
-		braceLevel = braceLevel - 1
-		if braceLevel < 0:
-			sys.stderr.write("\n\nUnmatched closing brace!!!\n")
-		if closetag != '':
-			pline()
-			ofd.write( closetag )
-			closetag = ''
-	elif c == "\\":
-		if inMarkup:
-			pline()
-			ptag('')
-		inMarkup = 1
-		if data[i+1] == "'":
-			# special handling for 2-character escape codes
-			tag = data[i+1:i+4]
-			pline()
-			ptag(" ")
-			i = i + 3
-			inMarkup = 0
-	elif c == " ":
-		if inMarkup:
-			pline()
-			ptag(c)
-			inMarkup = 0
-		#elif wordCount > 80:
-			#wordCount = 0
-			#line = line + '\n'
-		else:
-			wordCount = wordCount + 1
-			line = line + c
-	else:
-		if inMarkup:
-			tag = tag + c
-		else:
-			line = line + c
+        i = i + 1
+        c = data[i]
+        if c == '\n':
+                c = ''
+        #sys.stderr.write(c)
+        if c == "{":
+                braceLevel = braceLevel + 1
+                if braceLevel > 1:
+                        sys.stderr.write("\n\nNested braces!!!\n")
+                        #sys.exit(-1)
+        elif c == "}":
+                if inMarkup:
+                        pline()
+                        ptag(c)
+                        inMarkup = 0
+                braceLevel = braceLevel - 1
+                if braceLevel < 0:
+                        sys.stderr.write("\n\nUnmatched closing brace!!!\n")
+                if closetag != '':
+                        pline()
+                        ofd.write( closetag )
+                        closetag = ''
+        elif c == "\\":
+                if inMarkup:
+                        pline()
+                        ptag('')
+                inMarkup = 1
+                if data[i+1] == "'":
+                        # special handling for 2-character escape codes
+                        tag = data[i+1:i+4]
+                        pline()
+                        ptag(" ")
+                        i = i + 3
+                        inMarkup = 0
+        elif c == " ":
+                if inMarkup:
+                        pline()
+                        ptag(c)
+                        inMarkup = 0
+                #elif wordCount > 80:
+                        #wordCount = 0
+                        #line = line + '\n'
+                else:
+                        wordCount = wordCount + 1
+                        line = line + c
+        else:
+                if inMarkup:
+                        tag = tag + c
+                else:
+                        line = line + c
     pline()
 
 def diagnostics():
     fd = open( wdir + '/DIAGNOSTICS', 'w' )
     fd.write( "Unknown tags in source:\n")
-    for t in unknownTags.keys():
-	    fd.write( t + '\n' )
+    for t in list(unknownTags.keys()):
+            fd.write( t + '\n' )
 
 ##
 ## main

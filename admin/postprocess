@@ -33,8 +33,6 @@ config = wi_config.config
 #-------end scriptdir check and config load
 
 
-import string
-
 wdir = os.environ['OUTPUTDIR']
 
 ifile = wdir + "/DIAGNOSTICS"
@@ -50,23 +48,23 @@ refs = {}
 
 strain = ''
 for line in lines:
-	if string.find( line, "MAJOR STRAIN:" ) == 0:
-		strain = string.strip( line[string.find(line, ':')+1 : ] )
-	elif strain == '':
-		continue
-	elif string.find( line, "Key not found: " ) != -1:
-		tokens = string.split( line )
-		key = tokens[3]
-		ref = string.join( tokens[5:] )
-		if not notfound.has_key(key):
-			notfound[key] = [strain]
-			refs[key] = ref
-		elif not strain in notfound[key]:
-			notfound[key].append(strain)
+        if str.find( line, "MAJOR STRAIN:" ) == 0:
+                strain = str.strip( line[str.find(line, ':')+1 : ] )
+        elif strain == '':
+                continue
+        elif str.find( line, "Key not found: " ) != -1:
+                tokens = str.split( line )
+                key = tokens[3]
+                ref = ''.join( tokens[5:] )
+                if key not in notfound:
+                        notfound[key] = [strain]
+                        refs[key] = ref
+                elif not strain in notfound[key]:
+                        notfound[key].append(strain)
 
-ks = notfound.keys()
+ks = list(notfound.keys())
 ks.sort()
 for k in ks:
-	notfound[k].sort()
-	ofd.write( k + ' (' + refs[k] + ') : ' + string.joinfields( notfound[k], ', ' ) + '\n' )
+        notfound[k].sort()
+        ofd.write( k + ' (' + refs[k] + ') : ' + ', '.join( notfound[k] ) + '\n' )
 

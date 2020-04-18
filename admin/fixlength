@@ -38,8 +38,6 @@ if '.' not in sys.path:
 #-------end scriptdir check and config load
 
 
-import string
- 
 NL = '\n'
 
 # lfbreak
@@ -52,45 +50,45 @@ NL = '\n'
 # returns string with '\n' added (int)(len(s)/limit) times
 #
 def lfbreak(s, limit):
-	idx = string.find(s, ' ', limit)
-	while idx > -1:
-		s = s[:idx] + '\n' + s[idx+1:]
-		idx = string.find(s, ' ', idx + limit)
-	return s
+        idx = str.find(s, ' ', limit)
+        while idx > -1:
+                s = s[:idx] + '\n' + s[idx+1:]
+                idx = str.find(s, ' ', idx + limit)
+        return s
  
 LINE_LENGTH = 70
 
 if len( sys.argv ) < 2:
-	print 'Usage: ' + sys.argv[0] + ' <path> [<path> ...]'
-	sys.exit(0)
+        print('Usage: ' + sys.argv[0] + ' <path> [<path> ...]')
+        sys.exit(0)
 
 paths = []
 for arg in sys.argv[1:]:
     # Build a list of paths.
     if os.path.isdir( arg ):
-	for filename in os.listdir( arg ):
-		path = os.path.join( arg, filename )
-		if os.path.isfile( path ):
-			paths.append( os.path.join( arg, filename ) )
+        for filename in os.listdir( arg ):
+                path = os.path.join( arg, filename )
+                if os.path.isfile( path ):
+                        paths.append( os.path.join( arg, filename ) )
     elif os.path.isfile( arg ):
-	paths.append( arg )
+        paths.append( arg )
     else:
-	print "'" + arg + "' not found."
+        print("'" + arg + "' not found.")
 
 
 # Apply lfbreak to each path.
 for path in paths:
-	sys.stderr.write( path + '\n' )
-	src = open( path )
-	tmp = []
-	for line in src.readlines():
-		tmp.append( lfbreak(line, LINE_LENGTH) )
-	src.close()
-	try:
-		dest = open( path, 'w' )
-		for line in tmp:
-			dest.write( line )
-		dest.close()
-	except:
-		sys.stderr.write( 'fixlength: unable to open ' + path \
-			+ ' for writing.\n' )
+        sys.stderr.write( path + '\n' )
+        src = open( path )
+        tmp = []
+        for line in src.readlines():
+                tmp.append( lfbreak(line, LINE_LENGTH) )
+        src.close()
+        try:
+                dest = open( path, 'w' )
+                for line in tmp:
+                        dest.write( line )
+                dest.close()
+        except:
+                sys.stderr.write( 'fixlength: unable to open ' + path \
+                        + ' for writing.\n' )
